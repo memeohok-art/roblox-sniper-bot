@@ -25,6 +25,7 @@ from discord.ext import commands
 
 from config import Settings
 from roblox_api import PurchaseResult, RobloxClient, RobloxError
+import storage
 from store import Store
 
 log = logging.getLogger("sniper")
@@ -1100,6 +1101,8 @@ class SnipeCommands(commands.Cog):
         embed.add_field(name="Filters", value="\n".join(filters) or "none (any free item)", inline=False)
         embed.add_field(name="Watch list", value=str(len(cfg.get("watch_ids") or [])) + " item(s)", inline=True)
         embed.add_field(name="Handled items", value=f"`{len(cfg.get('seen') or [])}`", inline=True)
+        report = storage.analyse(self.bot.settings.data_path)
+        embed.add_field(name="State file", value=storage.summary(report), inline=False)
 
         runtime = int(time.time() - self.bot.started_at)
         embed.set_footer(
@@ -1182,6 +1185,11 @@ class SnipeCommands(commands.Cog):
         embed.add_field(name="CSRF handshake", value=csrf_line, inline=False)
         embed.add_field(name="Robux balance", value=robux_line, inline=False)
         embed.add_field(name="Catalog read", value=catalog_line, inline=False)
+        embed.add_field(
+            name="State file",
+            value=storage.summary(storage.analyse(self.bot.settings.data_path)),
+            inline=False,
+        )
         embed.add_field(name="Verdict", value=verdict, inline=False)
         if self.settings.dry_run:
             embed.set_footer(text="DRY_RUN is enabled — the sniper will not actually buy")
@@ -1769,6 +1777,16 @@ def main() -> None:
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
     )
     logging.getLogger("discord.http").setLevel(logging.WARNING)
+
+    report = storage.analyse(settings.data_path)
+    if not report["writable"]:
+        log.error("State directory is not writable: %s", report.get("error"))
+    elif storage.at_risk(report):
+        log.warning("=" * 70)
+        log.warning("STATE WILL BE WIPED ON REDEPLOY — no volume at %s", report["directory"])
+        log.warning("Mount a volume at /app/data and set DATA_PATH=/app/data/state.json,")
+        log.warning("otherwise bought items and sweep progress reset on every deploy.")
+        log.warning("=" * 70)
 
     store = Store(settings.data_path)
     roblox = RobloxClient(

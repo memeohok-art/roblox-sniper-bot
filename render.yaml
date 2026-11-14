@@ -1,0 +1,27 @@
+# Render blueprint — deploy a worker (no web port, no health check).
+# Secrets are marked sync:false, so Render asks for them in the dashboard and
+# they are never stored in the repo.
+services:
+  - type: worker
+    name: roblox-sniper
+    runtime: docker
+    plan: starter            # disks require a paid instance type
+    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: ROBLOX_COOKIE
+        sync: false
+      - key: GUILD_ID
+        value: "1570754134276313299"
+      - key: DRY_RUN
+        value: "true"
+      - key: DATA_PATH
+        value: /app/data/state.json
+      - key: LOG_LEVEL
+        value: INFO
+    disk:
+      name: sniper-data
+      mountPath: /app/data
+      sizeGB: 1

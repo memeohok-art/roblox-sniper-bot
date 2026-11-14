@@ -1,0 +1,3 @@
+# Optional: only needed for `python connect_roblox.py` (browser login).
+# After installing, run:  playwright install chromium
+playwright>=1.40

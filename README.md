@@ -307,6 +307,8 @@ the item is never retried. Soft failures get a 5-minute cooldown instead.
 bot.py            Discord front-end, per-guild scan worker, slash commands
 roblox_api.py     async Roblox client: auth, CSRF, catalog, ownership, purchase
 store.py          JSON state (config, seen ids, watch metadata, history)
+storage.py        is the state directory a real volume? (survives redeploys?)
+doctor.py         offline preflight: env, token, cookie, storage, deps
 config.py         env parsing
 connect_roblox.py browser login → cookie into .env (no DevTools)
 selftest.py       offline checks: fast path, retries, lanes, doctor (no network)
@@ -361,6 +363,41 @@ Render: *New → Blueprint* → point at the repo → it reads `render.yaml` and
 the two secrets.
 
 Free tiers spin workers down; the bot only snipes while the process is alive.
+
+## Stop the state from being wiped
+
+`data/state.json` remembers which items were bought and how far a sweep got. On a
+host, the container filesystem is rebuilt on every deploy — so **the data directory
+must be a mounted volume**, or the bot quietly starts from zero each time.
+
+The bot now checks this itself, on start and in `/snipe doctor`:
+
+```
+WARNING sniper: STATE WILL BE WIPED ON REDEPLOY — no volume at /app/data
+```
+
+It compares the state directory's device id with the app directory's: a real mount
+is a different device. That check is only enforced when a host is detected
+(`RAILWAY_*`, `RENDER*`, `FLY_APP_NAME`, …) — on a VPS or your PC the disk persists
+anyway, so no volume is needed.
+
+To be sure before deploying, run the offline preflight:
+
+```bash
+python doctor.py
+```
+
+```
+✅ Python — 3.11.2
+✅ Dependencies — discord.py, aiohttp, python-dotenv
+✅ Discord token — 74 chars
+✅ Roblox cookie — 130 chars
+✅ Guild id — 1570754134276313299 (instant command sync)
+✅ State file — /app/data/state.json · ✅ volume · 4,120 MB free
+✅ Buying — live
+```
+
+It exits non-zero on anything that would stop the bot from coming online.
 
 ## Truly free hosting
 
